@@ -37,8 +37,7 @@ function get_yn() { # gets Y or N keypress, enter alone assumes Y
 }
 
 [ "$UID" -eq 0 ] || {
-        printf "\nThe script need to be run as root." >&2
-        printf "\nAttempting to elevate script.\n"
+        printf "\nThis script needs root.  Attempting to elevate.\n\n" >&2
         exec sudo bash "$0" "$@"
 }
 printf "\nFirst run... Starting template customizer script."
@@ -52,14 +51,12 @@ case $RESPONSE in
                 printf "\nIP address unchanged.\n"
                 VIP="UNCHANGED [$(hostname -I | cut -d ' ' -f 1)]"
                 ;;
-        y)
-                IP=1
-                until [ $IP = 0 ]; do
+        y)      while true; do
                         printf "\nEnter IP in xxx.xxx.xxx.xxx (IPV4) format: "
                         read -r -n16
                         if valid_ip "$REPLY"; then
                                 VIP=$REPLY
-                                IP=0
+                                break
                         else
                                 printf "\nInvalid IP.  Please reenter.\n"
                         fi
@@ -95,11 +92,11 @@ printf "\nApply these changes? "
 RESPONSE=$(get_yn)
 case "$RESPONSE" in
         y)
-                if ! [[ $VHOST =~ "^\[UNCHANGED\]" ]]; then
-                        set-hostname
+                if ! [[ $VHOST =~ ^\[UNCHANGED\] ]]; then
+                        $HOSTNAMECTL set-hostname "$VHOST"
                         printf "\nHostname set.\n"
                 fi
-                if ! [[ $VIP =~ "^\[UNCHANGED\]" ]]; then
+                if ! [[ $VIP =~ ^\[UNCHANGED\] ]]; then
                         printf "\nNetplan config updated.\n"
                 fi
                 ;;

@@ -2,6 +2,49 @@
 
 HOSTNAMECTL="$(which hostnamectl)"
 
+generateAndApply() {
+        sudo netplan generate
+        sudo netplan apply
+}
+
+getInternetInfo() {
+        local INTERNET_INFO=$(ip r | grep default)
+        printf "%s" "$(echo "$INTERNET_INFO" | cut -f$1 -d' ')"
+}
+
+#static information
+NAMESERVERS=("192.168.1.249")
+NETWORK_MANAGER="networkd"
+
+# information that varies
+IP="$(ip r | grep kernel | cut -f9 -d' ')"
+GATEWAY="$(getInternetInfo 3)"
+DEVICE_NAME="$(getInternetInfo 5)"
+METHOD="$(getInternetInfo 7)"
+PREFIX="$(ip r | grep kernel | cut -f1 -d' ' | cut -f2 -d'/')"
+
+createStaticYAML() {
+        local YAML="network:\n"
+        YAML+="    version: 2\n"
+        YAML+="    renderer: $NETWORK_MANAGER\n"
+        YAML+="    ethernets:\n"
+        YAML+="        $DEVICE_NAME:\n"
+        YAML+="            dhcp4: no\n"
+        YAML+="            addresses: [$IP/$PREFIX]\n"
+        YAML+="            gateway4: $GATEWAY\n"
+        YAML+="            nameservers:\n"
+        YAML+="                addresses: [${NAMESERVERS[0]}]"
+        printf "%s" "$YAML"
+}
+
+clearConfigs() {
+        [ -f $END_CONFIG ] && sudo rm $END_CONFIG
+}
+
+setYAML() {
+        echo -e "$(createStaticYAML)" > $END_CONFIG
+}
+
 function valid_ip() { # validates ip and return 0 if valid and 1 if not
         local ip=$1
         local stat=1
@@ -51,7 +94,8 @@ case $RESPONSE in
                 printf "\nIP address unchanged.\n"
                 VIP="UNCHANGED [$(hostname -I | cut -d ' ' -f 1)]"
                 ;;
-        y)      while true; do
+        y)
+                while true; do
                         printf "\nEnter IP in xxx.xxx.xxx.xxx (IPV4) format: "
                         read -r -n16
                         if valid_ip "$REPLY"; then
@@ -92,12 +136,14 @@ printf "\nApply these changes? "
 RESPONSE=$(get_yn)
 case "$RESPONSE" in
         y)
-                if ! [[ $VHOST =~ ^\[UNCHANGED\] ]]; then
+                if ! [[ "$VHOST" =~ ^UNCHANGED ]]; then
                         $HOSTNAMECTL set-hostname "$VHOST"
                         printf "\nHostname set.\n"
                 fi
-                if ! [[ $VIP =~ ^\[UNCHANGED\] ]]; then
-                        printf "\nNetplan config updated.\n"
+                if ! [[ "$VIP" =~ ^UNCHANGED ]]; then
+                        
+
+                        printf "\nNetplan config created.\n"
                 fi
                 ;;
         *)

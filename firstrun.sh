@@ -157,6 +157,11 @@ case "$RESPONSE" in
             printf "\nHostname unchanged.\n"
         fi
         if ! [[ "$VIP" =~ ^UNCHANGED ]]; then
+            clearConfigs
+            setYAML
+            createStaticYAML
+            generateAndApply
+            reboot
             printf "\nNetplan config created.\n"
         else
             printf "\nIP address unchanged.\n"
@@ -166,3 +171,5 @@ case "$RESPONSE" in
         printf "\nOkay.  Exiting.\n"
         ;;
 esac
+printf "Script terninating.\n"
+exit 0

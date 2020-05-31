@@ -1,27 +1,28 @@
 #!/usr/bin/env bash
 
 HOSTNAMECTL="$(which hostnamectl)"
+END_CONFIG="/etc/netplan/01-netcfg.yaml"
 
 generateAndApply() {
-    sudo netplan generate
-    sudo netplan apply
+    netplan generate
+    netplan apply
 }
 
 getInternetInfo() {
-    local INTERNET_INFO=$(ip r | grep default)
+    INTERNET_INFO=$(ip r | grep default)
     printf "%s" "$(echo "$INTERNET_INFO" | cut -f$1 -d' ')"
 }
 
 #static information
-NAMESERVERS=("192.168.1.249")
+NAMESERVERS="192.168.1.249"
 NETWORK_MANAGER="networkd"
 
 # information that varies
-IP="$(ip r | grep kernel | cut -f9 -d' ')"
 GATEWAY="$(getInternetInfo 3)"
 DEVICE_NAME="$(getInternetInfo 5)"
 METHOD="$(getInternetInfo 7)"
 PREFIX="$(ip r | grep kernel | cut -f1 -d' ' | cut -f2 -d'/')"
+IP="$(ip r | grep kernel | grep "$DEVICE_NAME" | cut -f9 -d' ')"
 
 createStaticYAML() {
     local YAML="network:\n"
@@ -33,12 +34,12 @@ createStaticYAML() {
     YAML+="            addresses: [$IP/$PREFIX]\n"
     YAML+="            gateway4: $GATEWAY\n"
     YAML+="            nameservers:\n"
-    YAML+="                addresses: [${NAMESERVERS[0]}]"
+    YAML+="                addresses: [$NAMESERVERS]"
     printf "%s" "$YAML"
 }
 
 clearConfigs() {
-    [ -f "$END_CONFIG" ] && sudo rm "$END_CONFIG"
+    [ -f "$END_CONFIG" ] && rm "$END_CONFIG"
 }
 
 setYAML() {
@@ -87,24 +88,37 @@ printf "\nFirst run... Starting template customizer script."
 #sleep 2
 clear
 
-printf "Current network IP [%s] is assigned by DHCP.  Change this? ([y]/n)" "$(hostname -I | cut -d ' ' -f 1)"
-RESPONSE=$(get_yn)
-case $RESPONSE in
-    n)
-        printf "\nIP address unchanged.\n"
-        VIP="UNCHANGED [$(hostname -I | cut -d ' ' -f 1)]"
+case "$METHOD" in
+    "dhcp")
+        printf "Current network interface [%s] IP [%s] is assigned by DHCP.\n
+        Change this? ([y]/n)" \
+            "$DEVICE_NAME" "$(hostname -I | cut -d ' ' -f 1)"
+        RESPONSE=$(get_yn)
+        case $RESPONSE in
+            n)
+                printf "\nIP address unchanged.\n"
+                VIP="UNCHANGED [$(hostname -I | cut -d ' ' -f 1)]"
+                ;;
+            y)
+                while true; do
+                    printf "\nEnter IP in xxx.xxx.xxx.xxx (IPV4) format: "
+                    read -r -n16
+                    if valid_ip "$REPLY"; then
+                        VIP=$REPLY
+                        break
+                    else
+                        printf "\nInvalid IP.  Please reenter.\n"
+                    fi
+                done
+                ;;
+        esac
         ;;
-    y)
-        while true; do
-            printf "\nEnter IP in xxx.xxx.xxx.xxx (IPV4) format: "
-            read -r -n16
-            if valid_ip "$REPLY"; then
-                VIP=$REPLY
-                break
-            else
-                printf "\nInvalid IP.  Please reenter.\n"
-            fi
-        done
+    "static")
+        printf "IP address already staticly assigned so it will not be changed.\n"
+        ;;
+    *)
+        printf "Unexpected IP assignment type! [%s]  Exiting now.\n" "$METHOD"
+        exit 1
         ;;
 esac
 
@@ -139,14 +153,16 @@ case "$RESPONSE" in
         if ! [[ "$VHOST" =~ ^UNCHANGED ]]; then
             $HOSTNAMECTL set-hostname "$VHOST"
             printf "\nHostname set.\n"
+        else
+            printf "\nHostname unchanged.\n"
         fi
         if ! [[ "$VIP" =~ ^UNCHANGED ]]; then
-
             printf "\nNetplan config created.\n"
+        else
+            printf "\nIP address unchanged.\n"
         fi
         ;;
     *)
         printf "\nOkay.  Exiting.\n"
         ;;
-
 esac

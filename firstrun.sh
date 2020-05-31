@@ -43,7 +43,7 @@ clearConfigs() {
 }
 
 setYAML() {
-    echo -e "$(createStaticYAML)" >"$END_CONFIG"
+    echo -e "$(createStaticYAML)" > "$END_CONFIG"
 }
 
 function valid_ip() { # validates ip and return 0 if valid and 1 if not
@@ -150,21 +150,24 @@ printf "\nApply these changes? "
 RESPONSE=$(get_yn)
 case "$RESPONSE" in
     y)
-        if ! [[ "$VHOST" =~ ^UNCHANGED ]]; then
-            $HOSTNAMECTL set-hostname "$VHOST"
-            printf "\nHostname set.\n"
-        else
-            printf "\nHostname unchanged.\n"
-        fi
         if ! [[ "$VIP" =~ ^UNCHANGED ]]; then
             clearConfigs
             setYAML
             createStaticYAML
             generateAndApply
-            reboot
             printf "\nNetplan config created.\n"
         else
             printf "\nIP address unchanged.\n"
+        fi
+        if ! [[ "$VHOST" =~ ^UNCHANGED ]]; then
+            $HOSTNAMECTL set-hostname "$VHOST"
+            printf "\nHostname set.  Reboot now? "
+            RESPONSE=$(get_yn)
+            if [[ $RESPONSE == "y" ]]; then
+                reboot
+            fi
+        else
+            printf "\nHostname unchanged.\n"
         fi
         ;;
     *)

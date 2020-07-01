@@ -5,7 +5,7 @@ END_CONFIG="/etc/netplan/01-netcfg.yaml"
 
 generateAndApply() {
     netplan generate
-    netplan apply
+    netplan apply  
 }
 
 getInternetInfo() {

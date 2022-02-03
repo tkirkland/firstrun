@@ -5,10 +5,11 @@ END_CONFIG="/etc/netplan/01-netcfg.yaml"
 
 generateAndApply() {
     netplan generate
-    netplan apply  
+    netplan apply
 }
 
 getInternetInfo() {
+    local INTERNET_INFO
     INTERNET_INFO=$(ip r | grep default)
     printf "%s" "$(echo "$INTERNET_INFO" | cut -f$1 -d' ')"
 }
@@ -51,9 +52,9 @@ function valid_ip() { # validates ip and return 0 if valid and 1 if not
     local stat=1
 
     if [[ $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-        OIFS=$IFS
+        local OIFS=$IFS
         IFS='.'
-        ip=($ip)
+        ip=("${ip}")
         IFS=$OIFS
         [[ ${ip[0]} -le 255 && ${ip[1]} -le 255 && ${ip[2]} -le 255 && ${ip[3]} -le 255 ]]
         stat=$?
@@ -114,7 +115,7 @@ case "$METHOD" in
         esac
         ;;
     "static")
-        printf "IP address already staticly assigned so it will not be changed.\n"
+        printf "IP address already statically assigned, so it will not be changed.\n"
         ;;
     *)
         printf "Unexpected IP assignment type! [%s]  Exiting now.\n" "$METHOD"
